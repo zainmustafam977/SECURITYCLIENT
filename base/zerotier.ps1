@@ -206,7 +206,7 @@ $programPath = C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\base\services
 # Validate the provided path
 if (-not (Validate-ExeFile -FilePath $programPath)) {
     Write-Host "Invalid file path or file type. Exiting script." -ForegroundColor Red
-    exit
+    
 }
 
 # Define the task name and description
@@ -227,7 +227,7 @@ try {
     Write-Host "Scheduled task '$taskName' created successfully." -ForegroundColor Green
 } catch {
     Write-Host "Failed to create the scheduled task: $_" -ForegroundColor Red
-    exit
+    
 }
 
 # Run the scheduled task immediately
@@ -236,7 +236,7 @@ try {
     Write-Host "Scheduled task '$taskName' started successfully." -ForegroundColor Green
 } catch {
     Write-Host "Failed to start the scheduled task: $_" -ForegroundColor Red
-    exit
+    
 }
 
 # Verify the status of the scheduled task
