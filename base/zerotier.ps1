@@ -248,3 +248,5 @@ if ($taskStatus -eq "Running") {
 }
 
 Write-Host "Script completed successfully." -ForegroundColor Green
+# Keep the window open
+Read-Host -Prompt "Press Enter to exit"
